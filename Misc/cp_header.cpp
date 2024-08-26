@@ -9,7 +9,7 @@ using namespace std;
 typedef long long ll;
 typedef long double ld;
 typedef pair<int, int> ii;
-typedef pair<ii, int> iii;
+typedef pair<int, ii> iii;
 typedef pair<long, long> pll;
 typedef vector<string> vs;
 typedef vector<int> vi; // Change it to ll if numbers are large!!!
@@ -18,6 +18,8 @@ typedef vector<vi> vvi;
 typedef vector<vii> vvii;
 typedef vector<vvi> vvvi;
 typedef vector<vvii> vvvii;
+typedef set<int> si;
+typedef vector<si> vsi;
 typedef vector<bool> vb;
 typedef vector<vb> vvb;
 typedef priority_queue<long> max_heap;
@@ -134,6 +136,490 @@ inline void maximum(T &x, U y)
     if (x < y)
         x = y;
 }
+
+/****** Data Structures *********/
+
+///////// Union Find //////////
+
+struct unionfind
+{
+    vector<int> rank;
+    vector<int> parent;
+
+    unionfind(int size)
+    {
+        rank = vector<int>(size, 0);
+        parent = vector<int>(size);
+        for (int i = 0; i < size; i++)
+            parent[i] = i;
+    }
+
+    int find(int x)
+    {
+        int tmp = x;
+        while (x != parent[x])
+            x = parent[x];
+        while (tmp != x)
+        {
+            int remember = parent[tmp];
+            parent[tmp] = x;
+            tmp = remember;
+        }
+        return x;
+    }
+
+    void unite(int p, int q)
+    {
+        p = find(p);
+        q = find(q);
+        if (q == p)
+            return;
+        if (rank[p] < rank[q])
+            parent[p] = q;
+        else
+            parent[q] = p;
+        if (rank[p] == rank[q])
+            rank[p]++;
+    }
+};
+
+// int main()
+// {
+//     /// union find
+//     unionfind uf(10);
+//     uf.unite(1, 5);
+//     uf.unite(2, 5);
+//     if (uf.find(1) == uf.find(2))
+//         cout << "1 and 2 in the same team" << endl;
+//     if (uf.find(1) != uf.find(7))
+//         cout << "1 and 7 not in the same team";
+//     return 0;
+// }
+
+///////// Segment Tree //////////
+
+const int N = 1e5; // limit for array size
+int n;             // array size
+int t[2 * N];
+
+void build()
+{ // build the tree
+    for (int i = n - 1; i > 0; --i)
+        t[i] = t[i << 1] + t[i << 1 | 1];
+}
+
+void modify(int p, int value)
+{ // set value at position p
+    for (t[p += n] = value; p > 1; p >>= 1)
+        t[p >> 1] = t[p] + t[p ^ 1];
+}
+
+int query(int l, int r)
+{ // sum on interval [l, r)
+    int res = 0;
+    for (l += n, r += n; l < r; l >>= 1, r >>= 1)
+    {
+        if (l & 1)
+            res += t[l++];
+        if (r & 1)
+            res += t[--r];
+    }
+    return res;
+}
+
+// int main()
+// {
+//     n = 15; // array size
+//     for (int i = 0; i < n; ++i)
+//         t[n + i] = 1; // init array
+//     build();
+//     modify(0, 1);
+//     cout << query(3, 11) << endl;
+// }
+
+///////// Fenwick Tree //////////
+
+int BIT[1000] = {0}, a[1000], m;
+void update(int x, int val)
+{
+    for (; x <= m; x += x & -x)
+        BIT[x] += val;
+}
+int query(int x)
+{
+    int sum = 0;
+    for (; x > 0; x -= x & -x)
+        sum += BIT[x];
+    return sum;
+}
+
+// int main()
+// {
+//     scanf("%d", &n);
+//     int i;
+//     for (i = 1; i <= n; i++)
+//     {
+//         scanf("%d", &a[i]);
+//         update(i, a[i]);
+//     }
+//     printf("sum of first 10 elements is %d\n", query(10));
+//     printf("sum of all elements in range [2, 7] is %d\n", query(7) - query(2 - 1));
+//     return 0;
+// }
+
+/****** Graph Theory *********/
+
+/********** Topological Sort **********/
+
+// input: directed graph (g[u] contains the neighbors of u, nodes are named 0,1,...,|V|-1).
+// output: is g a DAG (return value), a topological ordering of g (order).
+// comment: order is valid only if g is a DAG.
+// time: O(V+E).
+bool topological_sort(const vvi &g, vi &order)
+{
+    // compute indegree of all nodes
+    vi indegree(g.size(), 0);
+    for (int v = 0; v < g.size(); v++)
+        for (int u : g[v])
+            indegree[u]++;
+    // order sources first
+    order = vector<int>();
+    for (int v = 0; v < g.size(); v++)
+        if (indegree[v] == 0)
+            order.push_back(v);
+    // go over the ordered nodes and remove outgoing edges,
+    // add new sources to the ordering
+    for (int i = 0; i < order.size(); i++)
+        for (int u : g[order[i]])
+        {
+            indegree[u]--;
+            if (indegree[u] == 0)
+                order.push_back(u);
+        }
+    return order.size() == g.size();
+}
+
+/********** Strongly Connected Components **********/
+
+const int UNSEEN = -1;
+const int SEEN = 1;
+
+void KosarajuDFS(const vvi &g, int u, vi &S, vi &colorMap, int color)
+{
+    // DFS on digraph g from node u:
+    // visit a node only if it is mapped to the color UNSEEN,
+    // Mark all visited nodes in the color map using the given color.
+    // input: digraph (g), node (v), mapping:node->color (colorMap), color (color).
+    // output: DFS post-order (S), node coloring (colorMap).
+    colorMap[u] = color;
+    for (auto &v : g[u])
+        if (colorMap[v] == UNSEEN)
+            KosarajuDFS(g, v, S, colorMap, color);
+    S.push_back(u);
+}
+
+// Compute the number of SCCs and maps nodes to their corresponding SCCs.
+// input: directed graph (g[u] contains the neighbors of u, nodes are named 0,1,...,|V|-1).
+// output: the number of SCCs (return value), a mapping from node to SCC color (components).
+// time: O(V+E).
+int findSCC(const vvi &g, vi &components)
+{
+    // first pass: record the `post-order' of original graph
+    vi postOrder, seen;
+    seen.assign(g.size(), UNSEEN);
+    for (int i = 0; i < g.size(); ++i)
+        if (seen[i] == UNSEEN)
+            KosarajuDFS(g, i, postOrder, seen, SEEN);
+    // second pass: explore the SCCs based on first pass result
+    vvi reverse_g(g.size(), vi());
+    for (int u = 0; u < g.size(); u++)
+        for (int v : g[u])
+            reverse_g[v].push_back(u);
+    vi dummy;
+    components.assign(g.size(), UNSEEN);
+    int numSCC = 0;
+    for (int i = (int)g.size() - 1; i >= 0; --i)
+        if (components[postOrder[i]] == UNSEEN)
+            KosarajuDFS(reverse_g, postOrder[i], dummy, components, numSCC++);
+    return numSCC;
+}
+
+// Computes the SCC graph of a given digraph.
+// input: directed graph (g[u] contains the neighbors of u, nodes are named 0,1,...,|V|-1).
+// output: strongly connected components graph of g (sccg).
+// time: O(V+E).
+void findSCCgraph(const vvi &g, vsi &sccg)
+{
+    vi component;
+    int n = findSCC(g, component);
+    sccg.assign(n, si());
+    for (int u = 0; u < g.size(); u++)
+        for (int v : g[u]) // for every edge u->v
+            if (component[u] != component[v])
+                sccg[component[u]].insert(component[v]);
+}
+
+/********** Shortest Paths **********/
+
+// input: non-negatively weighted directed graph (g[u] contains pairs (v,w) such that u->v has weight w, nodes are named 0,1,...,|V|-1), source (s).
+// output: distances from s (dist).
+// time: O(ElogV).
+void Dijkstra(const vvii &g, int s, vi &dist)
+{
+    dist = vi(g.size(), INF);
+    dist[s] = 0;
+    priority_queue<ii, vii, greater<ii>> q;
+    q.push({0, s});
+    while (!q.empty())
+    {
+        ii front = q.top();
+        q.pop();
+        int d = front.first, u = front.second;
+        if (d > dist[u])
+            continue; // We may have found a shorter way to get to u after inserting it to q.
+        // In that case, we want to ignore the previous insertion to q.
+        for (ii next : g[u])
+        {
+            int v = next.first, w = next.second;
+            if (dist[u] + w < dist[v])
+            {
+                dist[v] = dist[u] + w;
+                q.push({dist[v], v});
+            }
+        }
+    }
+}
+
+// input: weighted directed graph (g[u] contains pairs (v,w) such that u->v has weight w, nodes are named 0,1,...,|V|-1), source node (s).
+// output: is there a negative cycle in g? (return value), the distances from s (d)
+// comment: the values in d are valid only if there is no negative cycle.
+// time: O(VE).
+bool BellmanFord(const vvii &g, int s, vi &d)
+{
+    d.assign(g.size(), INF);
+    d[s] = 0;
+    bool changed = false;
+    // V times
+    for (int i = 0; i < g.size(); ++i)
+    {
+        changed = false;
+        // go over all edges u->v with weight w
+        for (int u = 0; u < g.size(); ++u)
+            for (ii e : g[u])
+            {
+                int v = e.first;
+                int w = e.second;
+                // relax the edge
+                if (d[u] < INF && d[u] + w < d[v])
+                {
+                    d[v] = d[u] + w;
+                    changed = true;
+                }
+            }
+    }
+    // there is a negative cycle if there were changes in the last iteration
+    return changed;
+}
+
+// input: weighted directed graph (g[u] contains pairs (v,w) such that u->v has weight w, nodes are named 0,1,...,|V|-1).
+// output: the pairwise distances (d).
+// time: O(V^3).
+void FloydWarshall(const vvii &g, vvi &d)
+{
+    // initialize distances according to the graph edges
+    d.assign(g.size(), vi(g.size(), INF));
+    for (int u = 0; u < g.size(); ++u)
+        d[u][u] = 0;
+    for (int u = 0; u < g.size(); ++u)
+        for (ii e : g[u])
+        {
+            int v = e.first;
+            int w = e.second;
+            d[u][v] = min(d[u][v], w);
+        }
+    // relax distances using the Floyd-Warshall algorithm
+    for (int k = 0; k < g.size(); ++k)
+        for (int u = 0; u < g.size(); ++u)
+            for (int v = 0; v < g.size(); ++v)
+                d[u][v] = min(d[u][v], d[u][k] + d[k][v]);
+}
+
+/********** Min Spanning Tree **********/
+
+// input: edges v1->v2 of the form (weight,(v1,v2)),
+//        number of nodes (n), all nodes are between 0 and n-1.
+// output: weight of a minimum spanning tree.
+// time: O(ElogV).
+int Kruskal(vector<iii> &edges, int n)
+{
+    sort(edges.begin(), edges.end());
+    int mst_cost = 0;
+    unionfind components(n);
+    for (iii e : edges)
+    {
+        if (components.find(e.second.first) != components.find(e.second.second))
+        {
+            mst_cost += e.first;
+            components.unite(e.second.first, e.second.second);
+        }
+    }
+    return mst_cost;
+}
+
+/********** Max Flow **********/
+
+int augment(vvi &res, int s, int t, const vi &p, int minEdge)
+{
+    // traverse the path from s to t according to p.
+    // change the residuals on this path according to the min edge weight along this path.
+    // return the amount of flow that was added.
+    if (t == s)
+    {
+        return minEdge;
+    }
+    else if (p[t] != -1)
+    {
+        int f = augment(res, s, p[t], p, min(minEdge, res[p[t]][t]));
+        res[p[t]][t] -= f;
+        res[t][p[t]] += f;
+        return f;
+    }
+    return 0;
+}
+
+// input: number of nodes (n), all nodes are between 0 and n-1,
+//        edges v1->v2 of the form (weight,(v1,v2)), source (s) and target (t).
+// output: max flow from s to t over the edges.
+// time: O(VE^2) and O(EF).
+int EdmondsKarp(int n, vector<iii> &edges, int s, int t)
+{
+    // initialise adjacenty list and residuals adjacency matrix
+    vvi res(n, vi(n, 0));
+    vvi adj(n);
+    for (iii e : edges)
+    {
+        res[e.second.first][e.second.second] += e.first;
+        adj[e.second.first].push_back(e.second.second);
+        adj[e.second.second].push_back(e.second.first);
+    }
+    // while we can add flow
+    int addedFlow, maxFlow = 0;
+    do
+    {
+        // save to p the BFS tree from s to t using only edges with residuals
+        vi dist(res.size(), INF);
+        dist[s] = 0;
+        queue<int> q;
+        q.push(s);
+        vi p(res.size(), -1);
+        while (!q.empty())
+        {
+            int u = q.front();
+            q.pop();
+            if (u == t)
+                break;
+            for (int v : adj[u])
+                if (res[u][v] > 0 && dist[v] == INF)
+                {
+                    dist[v] = dist[u] + 1;
+                    q.push(v);
+                    p[v] = u;
+                }
+        }
+        // add flow on the path between s to t according to p
+        addedFlow = augment(res, s, t, p, INF);
+        maxFlow += addedFlow;
+    } while (addedFlow > 0);
+    return maxFlow;
+}
+
+void bfs(const vvi &g, int s, vector<int> &d)
+{
+    queue<int> q;
+    q.push(s);
+    vector<bool> visible(g.size(), false);
+    visible[s] = true;
+    d.assign(g.size(), INF);
+    d[s] = 0;
+    while (!q.empty())
+    {
+        int u = q.front();
+        q.pop();
+        for (int v : g[u])
+            if (!visible[v])
+            {
+                visible[v] = true;
+                d[v] = d[u] + 1;
+                q.push(v);
+            }
+    }
+}
+
+void dfs(const vvi &g, int s, vector<int> &d)
+{
+    stack<int> q;
+    q.push(s);
+    vector<bool> seen(g.size(), false);
+    seen[s] = true;
+    d.assign(g.size(), INF);
+    d[s] = 0;
+    while (!q.empty())
+    {
+        int u = q.top();
+        q.pop();
+        for (int v : g[u])
+            if (!seen[v])
+            {
+                seen[v] = true;
+                d[v] = d[u] + 1;
+                q.push(v);
+            }
+    }
+}
+
+// Checks if the graph is cyclic
+bool isCyclic(vector<vector<int>> &graph)
+{
+    int V = graph.size();
+    vector<bool> visited(V, false);
+    vector<int> parent(V, -1);
+
+    // Use an explicit stack for DFS
+    for (int u = 0; u < V; ++u)
+    {
+        if (!visited[u])
+        {
+            stack<int> s;
+            s.push(u);
+
+            while (!s.empty())
+            {
+                int v = s.top();
+                s.pop();
+
+                if (!visited[v])
+                {
+                    visited[v] = true;
+                    for (int neighbor : graph[v])
+                    {
+                        if (!visited[neighbor])
+                        {
+                            s.push(neighbor);
+                            parent[neighbor] = v;
+                        }
+                        else if (parent[v] != neighbor)
+                        {
+                            return true; // Cycle detected
+                        }
+                    }
+                }
+            }
+        }
+    }
+    return false;
+}
+
+/****** Computational Geometry *********/
 
 double DEG_to_RAD(double d) { return d * PI / 180.0; }
 
@@ -540,6 +1026,14 @@ double diameter(vector<point> &ch)
     return maxDist;
 }
 
+/******************** Strings ********************/
+
+/********* Suffix Array *********/
+
+// Suffix Array
+// Given a string, the suffix array is a sorted array of all suffixes of the string.
+// The suffix array is a powerful data structure that can be used to solve many string processing problems.
+// The suffix array can be constructed in O(n log n) time using the Skew algorithm.
 #define MAX_N 200010
 
 class SuffixArray
@@ -632,17 +1126,77 @@ char P[MAX_N];
 char LRS_ans[MAX_N];
 char LCS_ans[MAX_N];
 
+// int main()
+// {
+//     scanf("%s", T);         // read T
+//     int n = (int)strlen(T); // count n
+//     T[n++] = '$';           // add terminating symbol
+//     SuffixArray S(T, n);    // construct SA+LCP
+
+//     printf("T = '%s'\n", T);
+//     printf(" i SA[i] LCP[i]   Suffix SA[i]\n");
+//     for (int i = 0; i < n; ++i)
+//         printf("%2d    %2d    %2d    %s\n", i, S.SA[i], S.LCP[i], T + S.SA[i]);
+
+//     return 0;
+// }
+
+/********* KMP algorithm *********/
+
+// KMP algorithm
+// Given a string and a pattern, KMP algorithm finds all the occurrences of the pattern in the string
+// The algorithm has two main steps:
+// 1. Construct the LPS (Longest Prefix Suffix) array
+// 2. Search for the pattern in the string
+// The time complexity of the algorithm is O(n + m) where n is the length of the string and m is the length of the pattern
+string KMP_str; // The string to search in
+string KMP_pat; // The pattern to search
+vi lps;
+
+// KMP Init
+void KMP_init()
+{
+    int m = KMP_pat.length();
+    lps.resize(m + 1, 0);
+    lps[0] = -1;
+    int i = 0, j = -1;
+    while (i < m)
+    {
+        while (j >= 0 && KMP_pat[i] != KMP_pat[j])
+            j = lps[j];
+        i++;
+        j++;
+        cout << i << endl;
+        lps[i] = j;
+    }
+}
+
+// Search a pattern in a string
+// Assuming lps is allready initialized with KMP_init
+void KMP_search()
+{
+    int n = KMP_str.length();
+    int m = KMP_pat.length();
+    int i = 0, j = 0;
+    while (i < n)
+    {
+        while (j >= 0 && KMP_str[i] != KMP_pat[j])
+            j = lps[j];
+        i++;
+        j++;
+        if (j == m)
+        { // Pattern found
+            cout << "The pattern is found at index " << i - j << endl;
+            j = lps[j];
+        }
+    }
+}
+
 int main()
 {
-    scanf("%s", T);         // read T
-    int n = (int)strlen(T); // count n
-    T[n++] = '$';           // add terminating symbol
-    SuffixArray S(T, n);    // construct SA+LCP
-
-    printf("T = '%s'\n", T);
-    printf(" i SA[i] LCP[i]   Suffix SA[i]\n");
-    for (int i = 0; i < n; ++i)
-        printf("%2d    %2d    %2d    %s\n", i, S.SA[i], S.LCP[i], T + S.SA[i]);
-
+    KMP_pat = "aba";
+    KMP_str = "abababacababac";
+    KMP_init();
+    KMP_search();
     return 0;
 }
